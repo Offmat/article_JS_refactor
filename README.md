@@ -49,103 +49,33 @@ class ResearchDynamicFilter {
 }
 ```
 
-As you can see, website is supposed to be available only for AD_EXCHANGE channel. But last thing you can say about code is that it is permanent or static. So we have more requests from our client:
+As you can see, website is supposed to be available only for AD_EXCHANGE channel. But last thing you can say about code is that it is permanent or static. So we have more requests from our client, and making those classes bigger and more complex.
 
-Let’s add another channel !
+* **Adding another channel - EBDA:**
+  * expand *'ResearchFormStateUpdater.DISABLING_DEMAND_CHANNELS'* by ebda demand channel
+  * name changing:
+    * *'isWebsitesDimensionDisabled'* to *'_areFormStateDimensionsDisabled'*
+    * *'WEBSITE_DISABLING_DEMAND_CHANNELS'* to *'DISABLING_DEMAND_CHANNELS'*
 
-Diff for ResearchFormStateUpdater:
-```js
-   _updateDynamicFilters () {
-     (this._getScopedSelector('.dynamic-filter')).each((_, filter) => {
--      (filter).trigger('dynamicFilter:disableWebsites', this.isWebsitesDimensionDisabled);
-+     (filter).trigger('dynamicFilter:disableWebsites', this._areFormStateDimensionsDisabled());
-     });
-   }
+Spoiler alert -> when component i open for changes, there will be a lot of name changing in future. We won't pay attention to this in next steps.
 
-_areFormStateDimensionsDisabled () {
-  return this._shouldDisableFields(ResearchFormStateUpdater.DISABLING_DEMAND_CHANNELS);
-}
+* **Adding another dimension - product:**
+  * *'ResearchDynamicFilter'* has to check for one more dimension while disabling/enabling fields
+
+* **Let’s go bigger and add some switcher above channels -> ‘Source’:**
+  * Rules:
+    * Sources: Ad Manager, Ssp.
+    * Demand channels are available only for Ad Manager source.
+    * ‘Website’ is only dimension (also filter) available for Ssp source.
+  * Implementation:
+    * When 'Ssp' checked:
+      * Disable demand channels.
+      * trigger *'dynamicFilter:disableWebsitesAndProducts'* <- enable both
+      * trigger *'dynamicFilter:disableNonSspOptions'*
+    * When Ad Manager checked:
+      * trigger *'dynamicFilter:disableWebsitesAndProducts'* <- check weather enable or disable
 
 
--ResearchFormStateUpdater.WEBSITE_DISABLING_DEMAND_CHANNELS = [
-+ResearchFormStateUpdater.DISABLING_DEMAND_CHANNELS = [
-   '#research_form_demand_channels_hb',
-   '#research_form_demand_channels_reservation',
--  '#research_form_demand_channels_other'
-+  '#research_form_demand_channels_other',
-+  '#research_form_demand_channels_ebda'
-
-```
-
-So now let’s add a new dimension - ‘product’ which is supposed to be available only for AD_EXCHANGE as well
-Diff for ResearchFormStateUpdater:
-```js
--      $(filter).trigger('dynamicFilter:disableWebsites', this.areFormStateDimensionsDisabled);
-+      $(filter).trigger('dynamicFilter:disableWebsitesAndProducts', this.areFormStateDimensionsDisabled);
-```
-
-Diff for ResearchDynamicFilter:
-```js
-_setDynamicFilterDisableWebsitesEvent () {
--    $(this._getBody()).on('dynamicFilter:disableWebsites', (event, shouldDisableWebsites) => {
--      this._setFilterDisabledState(shouldDisableWebsites);
--      this._setMethodSelectWebsiteOptionDisabledState(shouldDisableWebsites);
-+  _setDynamicFilterDisableWebsitesAndProductsEvent () {
-+    $(this._getBody()).on('dynamicFilter:disableWebsitesAndProducts', (event, shouldDisableWebsitesAndProducts) => {
-+      const selectedDimension = this._getDimension().find('option:selected').val();
-+      if (selectedDimension === 'website') {
-+        this._setWebsitesFilterDisabledState(shouldDisableWebsitesAndProducts);
-+      } else if (selectedDimension === 'product') {
-+        this._setProductsFilterDisabledState(shouldDisableWebsitesAndProducts);
-+      }
-+      this._setMethodSelectWebsiteAndProductOptionDisabledState(shouldDisableWebsitesAndProducts);
-     });
-   }
-```
-
-As we can see, with new PO request we had to change logic of main method responsible for switching filters availability. But it’s not over yet!
-
-Let’s go bigger and add some switcher above channel. Let me introduce you to ‘Source’. It gets funny here.
-Sources: Ad Manager, Ssp.
-Demand channel available only for Ad Manager source.
-‘Website’ is only dimension (so filter) available for Ssp source.
-
-Diff for ResearchFormStateUpdater:
-```js
-+  _adManagerSourceCallbacks () {
-+    (...)
-+    this._updateDefaultStateOfDynamicFilters();
-+    this._updateAdManagerDynamicFilters();
-+  }
-
-+  _sspSourceCallbacks () {
-+    (...)
-+    this._updateDefaultStateOfDynamicFilters();
-+    this._updateSspDynamicFilters();
-+  }
-
-+  _updateDefaultStateOfDynamicFilters () {
-+    $(this._getScopedSelector('.dynamic-filter')).each((_, filter) => {
-+      $(filter).trigger('dynamicFilter:enableSspFilters', this.isSourceSsp);
-+    });
-+  }
-+
-+  _updateSspDynamicFilters () {
-     $(this._getScopedSelector('.dynamic-filter')).each((_, filter) => {
--      $(filter).trigger('dynamicFilter:disableWebsitesAndProducts', this.areFormStateDimensionsDisabled);
-+      $(filter).trigger('dynamicFilter:disableNonSspOptions', true);
-     });
-   }
-
-+  _updateAdManagerDynamicFilters () {
-+    $(this._getScopedSelector('.dynamic-filter')).each((_, filter) => {
-+      $(filter).trigger('dynamicFilter:disableWebsitesAndProducts', this.areFormStateDimensionsDisabled && !this.isSourceSsp);
-+    });
-+  }
-```
-
-Diff for ResearchDynamicFilter:
-```js
 
 
 
