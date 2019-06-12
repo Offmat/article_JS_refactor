@@ -57,7 +57,7 @@ As you can see, website is supposed to be available only for AD_EXCHANGE channel
     * *'isWebsitesDimensionDisabled'* to *'_areFormStateDimensionsDisabled'*
     * *'WEBSITE_DISABLING_DEMAND_CHANNELS'* to *'DISABLING_DEMAND_CHANNELS'*
 
-Spoiler alert -> when component i open for changes, there will be a lot of name changing in future. We won't pay attention to this in next steps.
+Spoiler alert -> when component is open for changes, there will be a lot of name changing in future. We won't pay attention to this in next steps.
 
 * **Adding another dimension - product:**
   * *'ResearchDynamicFilter'* has to check for one more dimension while disabling/enabling fields
@@ -75,11 +75,113 @@ Spoiler alert -> when component i open for changes, there will be a lot of name 
     * When Ad Manager checked:
       * trigger *'dynamicFilter:disableWebsitesAndProducts'* <- check weather enable or disable
 
+### Implementation with new functionality:
+I will leave full callbacks list here, so you can see it wasn't only about dynamic filters - there was a lot of functionality.
 
+```js
+class ResearchFormStateUpdater {
+  update () {
+    (...)
+    this._triggerCallbacks();
+  }
 
+  _triggerCallbacks () {
+    if (this.isSourceSsp) {
+      this._sspSourceCallbacks();
+    } else {
+      this._adManagerSourceCallbacks();
+    }
+  }
 
+  _adManagerSourceCallbacks () {
+    this._toggleDimensions(ResearchFormStateUpdater.SSP_DIMENSIONS, true);
+    this._enableDemandChannels(ResearchFormStateUpdater.AD_MANAGER_DEMAND_CHANNELS);
+    this._toggleDimensions(ResearchFormStateUpdater.AD_MANAGER_DIMENSIONS, false);
+    this._updateFormStateUpdaterAttributes();
+    this._updateDemandChannelsLabelClasses();
+    this._updateDimensions();
+    this._updateDefaultStateOfDynamicFilters();
+    this._updateAdManagerDynamicFilters();
+  }
 
+  _sspSourceCallbacks () {
+    this._removeDemandChannelsActiveClassAndDisable(ResearchFormStateUpdater.AD_MANAGER_DEMAND_CHANNELS);
+    this._toggleDimensions(ResearchFormStateUpdater.AD_MANAGER_DIMENSIONS, true);
+    this._enableDemandChannels(ResearchFormStateUpdater.SSP_DEMAND_CHANNELS);
+    this._toggleDimensions(ResearchFormStateUpdater.SSP_DIMENSIONS, false);
+    this._updateDefaultStateOfDynamicFilters();
+  }
 
+  _updateDefaultStateOfDynamicFilters () {
+    $(this._getScopedSelector('.dynamic-filter')).each((_, filter) => {
+      $(filter).trigger('dynamicFilter:enableSspFilters', this.isSourceSsp);
+    });
+  }
 
+  _updateAdManagerDynamicFilters () {
+    $(this._getScopedSelector('.dynamic-filter')).each((_, filter) => {
+      $(filter).trigger('dynamicFilter:disableWebsitesAndProducts', this._areFormStateDimensionsDisabled() && !this.isSourceSsp);
+    });
+  }
 
-Now DynamicFilter has to know, which dimensions are for which source. We do have ResearchFormStateUpdater, why shouldn’t he be in charge?  
+  _areFormStateDimensionsDisabled () {
+    this._shouldDisableFields(ResearchFormStateUpdater.AD_MANAGER_DISABLING_DEMAND_CHANNELS)
+  }
+
+  _shouldDisableFields (disablingDemandChannels) {
+    return disablingDemandChannels.find(selector => {
+      return $(this._getScopedSelector(selector)).prop('checked');
+    }) !== undefined;
+  }
+}
+
+ResearchFormStateUpdater.AD_MANAGER_DISABLING_DEMAND_CHANNELS = [
+  '#research_form_demand_channels_hb',
+  '#research_form_demand_channels_reservation',
+  '#research_form_demand_channels_other',
+  '#research_form_demand_channels_ebda'
+];
+
+class ResearchDynamicFilter {
+  _setDefaultDynamicFiltersToggleEvent () {
+    $(this._getBody()).on('dynamicFilter:enableSspFilters', (event, shouldEnableSspOptions) => {
+      this._setDefaultFiltersOptionDisabledState(shouldEnableSspOptions);
+
+      const selectedFilterDimension = this._getFiltersDimension().find('option:selected').val();
+      if (selectedFilterDimension === 'website') {
+        this._toggleChosenFilterDisabledState(false);
+      } else if (selectedFilterDimension === 'platform') {
+        this._toggleChosenFilterDisabledState(!shouldEnableSspOptions);
+      } else {
+        this._toggleChosenFilterDisabledState(shouldEnableSspOptions);
+      }
+    });
+  }
+
+  _setDynamicFilterDisableWebsitesAndProductsEvent () {
+    $(this._getBody()).on('dynamicFilter:disableWebsitesAndProducts', (event, shouldDisableWebsitesAndProducts) => {
+      const selectedFilterDimension = this._getFiltersDimension().find('option:selected').val();
+      if ($.inArray(selectedFilterDimension, ['website', 'product']) >= 0) {
+        this._toggleChosenFilterDisabledState(shouldDisableWebsitesAndProducts);
+      }
+      this._setMethodSelectWebsiteAndProductOptionDisabledState(shouldDisableWebsitesAndProducts);
+    });
+  }
+
+  _toggleNonSspFilters (dimensionSelect, shouldDisable) {
+    $.each(ResearchDynamicFilter.NON_SSP_FILTERS_OPTIONS, (_, option) => {
+      dimensionSelect.find(option).prop('disabled', shouldDisable);
+    });
+  }
+}
+
+ResearchDynamicFilter.NON_SSP_FILTERS_OPTIONS = [
+  'option[value="ad_unit"]', 'option[value="creative_size"]',
+  'option[value="geo"]', 'option[value="device"]',
+  'option[value="product"]'
+];
+```
+We still use some *'toggle'* mechanism. It is really hard to switch 5 levers and get to expected state and now DynamicFilter has to know, which dimensions are not for ssp source. We do have ResearchFormStateUpdater, why shouldn’t he be in charge?
+
+## Final request
+So now lets add additional dimension - Yield partner.
