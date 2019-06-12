@@ -184,4 +184,112 @@ ResearchDynamicFilter.NON_SSP_FILTERS_OPTIONS = [
 We still use some *'toggle'* mechanism. It is really hard to switch 5 levers and get to expected state and now DynamicFilter has to know, which dimensions are not for ssp source. We do have ResearchFormStateUpdater, why shouldn’t he be in charge?
 
 ## Final request
-So now lets add additional dimension - Yield partner.
+So now lets add additional dimension - Yield partner. That's exact moment when we decidet to rebuild those classes.
+```js
+class ResearchFormStateUpdater {
+  update () {
+    (...)
+    this._triggerCallbacks();
+  }
+
+  _triggerCallbacks () {
+    (...)
+    this._updateDynamicFilters();
+  }
+
+  _updateDynamicFilters () {
+    this._toggleAllDynamicFiltersState(this._dynamicFiltersDimensionsToBeDisabled());
+  }
+
+  _dynamicFiltersDimensionsToBeDisabled () {
+    if (this.isSourceSsp) { return ResearchFormStateUpdater.NO_SSP_FILTERS; }
+
+    var disabledFilters = ResearchFormStateUpdater.ONLY_SSP_FILTERS;
+    if (this.areDemandChannelsExceptAdxSelected) {
+      disabledFilters = disabledFilters.concat(ResearchFormStateUpdater.ONLY_ADX_FILTERS);
+    }
+    return disabledFilters;
+  }
+
+  _toggleAllDynamicFiltersState (disabledFilters) {
+    const serializedDisableFilters = disabledFilters.join(',');
+
+    $(this._getScopedSelector('.dynamic-filter')).each((_, filter) => {
+      this._toggleDynamicFilterState(filter, serializedDisableFilters);
+    });
+  }
+
+  _toggleDynamicFilterState (dynamicFilter, disabledFilters) {
+    $(dynamicFilter).trigger('dynamicFilter:toggleDynamicFilters', disabledFilters);
+  }
+}
+
+ResearchFormStateUpdater.NO_SSP_FILTERS = [
+  'ad_unit',
+  'creative_size',
+  'geo',
+  'device',
+  'product'
+];
+
+ResearchFormStateUpdater.ONLY_SSP_FILTERS = [
+  'platform'
+];
+
+ResearchFormStateUpdater.ONLY_ADX_FILTERS = [
+  'website',
+  'product'
+];
+
+class ResearchDynamicFilter {
+  _setDynamicFiltersToggleEvent () {
+    $(this._getBody()).on('dynamicFilter:toggleDynamicFilters', (event, disabledFilters) => {
+      this._toggleSelectedFilters(disabledFilters.split(','));
+      this._toggleUnselectedFilters(this._formatedDimensionValues(disabledFilters.split(',')));
+    });
+  }
+
+  _toggleUnselectedFilters (filtersToDisable) {
+    const filtersToEnable = $(ResearchDynamicFilter.ALL_FILTERS).not(filtersToDisable).get();
+    (...)
+  }
+}
+
+ResearchDynamicFilter.ALL_FILTERS = [
+  'option[value="website"]',
+  'option[value="ad_unit"]',
+  'option[value="creative_size"]',
+  'option[value="geo"]',
+  'option[value="device"]',
+  'option[value="product"]',
+  'option[value="platform"]'
+];
+```
+And now to add new dimension there is no need to change inside the code. Lets just add some values to Class constant and maybe some condition:
+```js
+_dynamicFiltersDimensionsToBeDisabled () {
+  (...)
+  if (this.areDemandChannelsExceptEbdaSelected) {
+    disabledFilters = disabledFilters.concat(ResearchFormStateUpdater.ONLY_EBDA_FILTERS);
+  }
+  return disabledFilters;
+}
+
+ResearchFormStateUpdater.NO_SSP_FILTERS = [
+  (...)
+  'yield_partner'
+];
+
+ResearchFormStateUpdater.ONLY_EBDA_FILTERS = [
+  'yield_partner'
+];
+
+ResearchDynamicFilter.ALL_FILTERS = [
+  (...)
+  'option[value="yield_partner"]'
+];
+```
+Thanks to *'open-closed principle'* we are able to change business logic of form with only adding some values and conditions on higher level of abstraction. We don't need to go inside component and changes anything. This refactor affected whole form, so you can imagine there were some additional sections and it all works based on arrays of values. We didn't reduce amount of code - as a matter of fact we even increased it (before/after):
+* *ResearchFormStateUpdater* - 211/282 lines
+* *ResearchDynamicFilter* - 267/256 lines
+It's all about array of values - 83 lines now, but its our public interface, our console to control process without tens of switchers.
