@@ -2,7 +2,7 @@
 Most developers have heard about open-closed principle - one of Uncle Bob’s SOLID principles. It sounds reasonable, but it can still be a little bit blurry until first usage on ‘live’ code. Full state of principle is: *software entities (classes, modules, functions, etc.) should be open for extension, but closed for modification*.
 
 ## So what it really means?
-We met development problem, which has shown us what open-closed principle really is about. In one of web applications we had form with two sections (among others): demand channels and dynamic filters. User can add as many filters as he wishes, but there were some channels which were disabling some of filters.  
+We met development problem, which has shown us what open-closed principle really is about. In one of our web applications we had form with two sections (among others): demand channels and dynamic filters. User can add as many filters as he wishes, but there are some rules - filter availability depends on chosen channels.  
 Demand channels: AD_EXCHANGE, HEADER_BIDDING, RESERVATION, OTHER  
 Dynamic filters(dimensions): website, ad_unit, geo, creative_size, device  
 
@@ -13,7 +13,7 @@ Dynamic filters(dimensions): website, ad_unit, geo, creative_size, device
 class ResearchFormStateUpdater {
   update () {
     (...)
-    this._updateDimensions();
+    this._updateDynamicFilters();
   }
 
   _updateDynamicFilters () {
@@ -49,9 +49,9 @@ class ResearchDynamicFilter {
 }
 ```
 
-As you can see, website is supposed to be available only for AD_EXCHANGE channel. But last thing you can say about code is that it is permanent or static. So we have more requests from our client, and making those classes bigger and more complex.
+As you can see, website is supposed to be available only for AD_EXCHANGE channel. But last thing you can say about code is that it is permanent or static. So we have more requests from our client making these classes bigger and more complex.
 
-* **Adding another channel - EBDA:**
+* **Add another channel - EBDA:**
   * expand *'ResearchFormStateUpdater.DISABLING_DEMAND_CHANNELS'* by ebda demand channel
   * name changing:
     * *'isWebsitesDimensionDisabled'* to *'_areFormStateDimensionsDisabled'*
@@ -59,7 +59,7 @@ As you can see, website is supposed to be available only for AD_EXCHANGE channel
 
 Spoiler alert -> when component is open for changes, there will be a lot of name changing in future. We won't pay attention to this in next steps.
 
-* **Adding another dimension - product:**
+* **Add another dimension - product:**
   * *'ResearchDynamicFilter'* has to check for one more dimension while disabling/enabling fields
 
 * **Let’s go bigger and add some switcher above channels -> ‘Source’:**
@@ -74,9 +74,15 @@ Spoiler alert -> when component is open for changes, there will be a lot of name
       * trigger *'dynamicFilter:disableNonSspOptions'*
     * When Ad Manager checked:
       * trigger *'dynamicFilter:disableWebsitesAndProducts'* <- check weather enable or disable
+* **Add ssp dimension - product**
+  * Rules:
+    * Product is available only when source is Ssp
+  * Difficulty:
+    * Now we have website, which is available for AD_EXCHANGE channel from Ad Manager and for Ssp and we have product which is available for Ssp but not for Ad Manager
+    * *Toggling* state of form gets really tricky and confusing
 
 ### Implementation with new functionality:
-I will leave full callbacks list here, so you can see it wasn't only about dynamic filters - there was a lot of functionality.
+I will leave full callbacks list here, so you can see it wasn't only about dynamic filters - there was a lot of sections with own functionality.
 
 ```js
 class ResearchFormStateUpdater {
@@ -181,10 +187,10 @@ ResearchDynamicFilter.NON_SSP_FILTERS_OPTIONS = [
   'option[value="product"]'
 ];
 ```
-We still use some *'toggle'* mechanism. It is really hard to switch 5 levers and get to expected state and now DynamicFilter has to know, which dimensions are not for ssp source. We do have ResearchFormStateUpdater, why shouldn’t he be in charge?
+We still use some *'toggle'* mechanism. It is really hard to switch 4 levers and get to expected state and now DynamicFilter has to know, which dimensions are not for ssp source. We do have ResearchFormStateUpdater, why shouldn’t he be in charge?
 
 ## Final request
-So now lets add additional dimension - Yield partner. That's exact moment when we decidet to rebuild those classes.
+So now lets add additional dimension - Yield partner. That is exact moment when we decided to refactor.
 ```js
 class ResearchFormStateUpdater {
   update () {
@@ -265,7 +271,7 @@ ResearchDynamicFilter.ALL_FILTERS = [
   'option[value="platform"]'
 ];
 ```
-And now to add new dimension there is no need to change inside the code. Lets just add some values to Class constant and maybe some condition:
+And now to add new dimension there is no need to change anythong deep inside the code and bottom level methods. Lets just add some values to classes constants and maybe some additional condition:
 ```js
 _dynamicFiltersDimensionsToBeDisabled () {
   (...)
@@ -289,7 +295,7 @@ ResearchDynamicFilter.ALL_FILTERS = [
   'option[value="yield_partner"]'
 ];
 ```
-Thanks to *'open-closed principle'* we are able to change business logic of form with only adding some values and conditions on higher level of abstraction. We don't need to go inside component and changes anything. This refactor affected whole form, so you can imagine there were some additional sections and it all works based on arrays of values. We didn't reduce amount of code - as a matter of fact we even increased it (before/after):
+Thanks to *'open-closed principle'* we are able to change business logic of form with only adding some values and conditions on higher level of abstraction. We don't need to go inside component and change anything. This refactor affected whole form, so you can imagine there were some additional sections and it all works based on arrays of values. We didn't reduce amount of code - as a matter of fact we even increased it (before/after):
 * *ResearchFormStateUpdater* - 211/282 lines
-* *ResearchDynamicFilter* - 267/256 lines
-It's all about array of values - 83 lines now, but its our public interface, our console to control process without tens of switchers.
+* *ResearchDynamicFilter* - 267/256 lines  
+It's all about arrays of values in updater class - 83 lines now, but its our public interface, our console to control process without tens of switchers.
