@@ -61,7 +61,7 @@ Spoiler alert -> when component is open for changes, there will be a lot of name
 * **Add another filter for 'Product'** (Product filter availability scheme is same as Website)
   * *ResearchDynamicFilter* class has to check for one more dimension while disabling/enabling fields
 
-* **Let’s go bigger and add some switcher above channels -> ‘Source’:**
+* **Let’s go bigger and add some switcher above channels -> ‘Source’.** All demand channels we were having till now are in Ad Manager source. New source - Ssp - has no demand channels and available filters is only website.
   * Rules:
     * There are two states od source: Ad Manager, Ssp.
     * All of our demand channels are available only for Ad Manager source.
@@ -75,7 +75,7 @@ Spoiler alert -> when component is open for changes, there will be a lot of name
     * When Ad Manager checked:
       * trigger *'dynamicFilter:disableWebsitesAndProducts'* <- check weather enable or disable
 
-* **Add another dfilter for 'Platform'**
+* **Add another filter for 'Platform'**
   * Rules:
     * Platform is available only when source is Ssp
   * Difficulty:
@@ -119,10 +119,6 @@ class ResearchFormStateUpdater {
     $('.dynamic-filter').each((_, filter) => {
       $(filter).trigger('dynamicFilter:disableWebsitesAndProducts', this._areFormStateDimensionsDisabled() && !this.isSourceSsp);
     });
-  }
-
-  _areFormStateDimensionsDisabled () {
-    this._shouldDisableFields(ResearchFormStateUpdater.AD_MANAGER_DISABLING_DEMAND_CHANNELS)
   }
 
   _shouldDisableFields (disablingDemandChannels) {
