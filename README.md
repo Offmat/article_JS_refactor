@@ -46,7 +46,7 @@ class ResearchDynamicFilter {
 }
 ```
 
-As you can see, website filter is supposed to be available only for AD_EXCHANGE channel (unavailable for rest channels).  
+As you can see, website filter is supposed to be unavailable for HEADER_BIDDING, RESERVATION and OTHER channels, so it is available only for  AD_EXCHANGE channel.  
 Last thing you can say about code is that it is permanent or static. So we have more requests from our client making these classes bigger and more complex.  
 
 ## Feature development
@@ -170,7 +170,7 @@ I present you next snippet mainly to show code complexity. Feel free to leave it
   ```
 </details>
 
-We still use some *'toggle'* mechanism. It is really hard to switch 4 levers and get to expected state and now DynamicFilter has to know, which dimensions are not for ssp source. We do have ResearchFormStateUpdater, why shouldn’t he be in charge?
+We still use some *'toggle'* mechanism. It is really hard to switch 4 levers and get to expected state and now DynamicFilter has to know, which dimensions are not for ssp source. We do have ResearchFormStateUpdater, why shouldn’t it be in charge?
 
 ## Final request
 ### **Add another filter for 'Yield partner'**  
