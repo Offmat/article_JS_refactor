@@ -83,88 +83,92 @@ Spoiler alert -> when component is open for changes, there will be a lot of name
     * *Toggling* state of form gets really tricky and confusing
 
 ### Implementation with new functionality:
-I present you this snippet mainly to show code complexity. Feel free to flip through it.
+I present you next snippet mainly to show code complexity. Feel free to leave it hidden.
 
-```js
-class ResearchFormStateUpdater {
-  update () {
-    (...)
-    this._triggerCallbacks();
+<details>
+  <summary>Show snippet with implementation before refactor</summary>
+
+  ```js
+  class ResearchFormStateUpdater {
+    update () {
+      (...)
+      this._triggerCallbacks();
+    }
+
+    _triggerCallbacks () {
+      // choose callbacks depending on source
+    }
+
+    _adManagerSourceCallbacks () {
+      (...)
+      this._enableDemandChannels(ResearchFormStateUpdater.AD_MANAGER_DEMAND_CHANNELS);
+      this._updateDefaultStateOfDynamicFilters();
+      this._updateAdManagerDynamicFilters();
+    }
+
+    _sspSourceCallbacks () {
+      (...)
+      this._removeDemandChannelsActiveClassAndDisable(ResearchFormStateUpdater.AD_MANAGER_DEMAND_CHANNELS);
+      this._updateDefaultStateOfDynamicFilters();
+    }
+
+    _updateDefaultStateOfDynamicFilters () {
+      $('.dynamic-filter').each((_, filter) => {
+        $(filter).trigger('dynamicFilter:enableSspFilters', this.isSourceSsp);
+      });
+    }
+
+    _updateAdManagerDynamicFilters () {
+      $('.dynamic-filter').each((_, filter) => {
+        $(filter).trigger('dynamicFilter:disableWebsitesAndProducts', this._areFormStateDimensionsDisabled() && !this.isSourceSsp);
+      });
+    }
+
+    _shouldDisableFields (disablingDemandChannels) {
+      // is any of disablingDemandChannels is checked
+    }
   }
 
-  _triggerCallbacks () {
-    // choose callbacks depending on source
+  ResearchFormStateUpdater.AD_MANAGER_DISABLING_DEMAND_CHANNELS = ['header_bidding', 'reservation', 'other', 'ebda'];
+
+  class ResearchDynamicFilter {
+    // I didn't simplify those two methods body to show current implementation complexity
+
+    _setDefaultDynamicFiltersToggleEvent () {
+      $(this._getBody()).on('dynamicFilter:enableSspFilters', (event, shouldEnableSspOptions) => {
+        this._setDefaultFiltersOptionDisabledState(shouldEnableSspOptions);
+
+        const selectedFilterDimension = this._getFiltersDimension().find('option:selected').val();
+        if (selectedFilterDimension === 'website') {
+          this._toggleChosenFilterDisabledState(false);
+        } else if (selectedFilterDimension === 'platform') {
+          this._toggleChosenFilterDisabledState(!shouldEnableSspOptions);
+        } else {
+          this._toggleChosenFilterDisabledState(shouldEnableSspOptions);
+        }
+      });
+    }
+
+    _setDynamicFilterDisableWebsitesAndProductsEvent () {
+      $(this._getBody()).on('dynamicFilter:disableWebsitesAndProducts', (event, shouldDisableWebsitesAndProducts) => {
+        const selectedFilterDimension = this._getFiltersDimension().find('option:selected').val();
+        if ($.inArray(selectedFilterDimension, ['website', 'product']) >= 0) {
+          this._toggleChosenFilterDisabledState(shouldDisableWebsitesAndProducts);
+        }
+        this._setMethodSelectWebsiteAndProductOptionDisabledState(shouldDisableWebsitesAndProducts);
+      });
+    }
+
+    _toggleNonSspFilters (dimensionSelect, shouldDisable) {
+      $.each(ResearchDynamicFilter.NON_SSP_FILTERS_OPTIONS, (_, option) => {
+        // toggle filter state depending on 'shouldDisable'
+      });
+    }
   }
 
-  _adManagerSourceCallbacks () {
-    (...)
-    this._enableDemandChannels(ResearchFormStateUpdater.AD_MANAGER_DEMAND_CHANNELS);
-    this._updateDefaultStateOfDynamicFilters();
-    this._updateAdManagerDynamicFilters();
-  }
-
-  _sspSourceCallbacks () {
-    (...)
-    this._removeDemandChannelsActiveClassAndDisable(ResearchFormStateUpdater.AD_MANAGER_DEMAND_CHANNELS);
-    this._updateDefaultStateOfDynamicFilters();
-  }
-
-  _updateDefaultStateOfDynamicFilters () {
-    $('.dynamic-filter').each((_, filter) => {
-      $(filter).trigger('dynamicFilter:enableSspFilters', this.isSourceSsp);
-    });
-  }
-
-  _updateAdManagerDynamicFilters () {
-    $('.dynamic-filter').each((_, filter) => {
-      $(filter).trigger('dynamicFilter:disableWebsitesAndProducts', this._areFormStateDimensionsDisabled() && !this.isSourceSsp);
-    });
-  }
-
-  _shouldDisableFields (disablingDemandChannels) {
-    // is any of disablingDemandChannels is checked
-  }
-}
-
-ResearchFormStateUpdater.AD_MANAGER_DISABLING_DEMAND_CHANNELS = ['header_bidding', 'reservation', 'other', 'ebda'];
-
-class ResearchDynamicFilter {
-  // I didn't simplify those two methods body to show current implementation complexity
-
-  _setDefaultDynamicFiltersToggleEvent () {
-    $(this._getBody()).on('dynamicFilter:enableSspFilters', (event, shouldEnableSspOptions) => {
-      this._setDefaultFiltersOptionDisabledState(shouldEnableSspOptions);
-
-      const selectedFilterDimension = this._getFiltersDimension().find('option:selected').val();
-      if (selectedFilterDimension === 'website') {
-        this._toggleChosenFilterDisabledState(false);
-      } else if (selectedFilterDimension === 'platform') {
-        this._toggleChosenFilterDisabledState(!shouldEnableSspOptions);
-      } else {
-        this._toggleChosenFilterDisabledState(shouldEnableSspOptions);
-      }
-    });
-  }
-
-  _setDynamicFilterDisableWebsitesAndProductsEvent () {
-    $(this._getBody()).on('dynamicFilter:disableWebsitesAndProducts', (event, shouldDisableWebsitesAndProducts) => {
-      const selectedFilterDimension = this._getFiltersDimension().find('option:selected').val();
-      if ($.inArray(selectedFilterDimension, ['website', 'product']) >= 0) {
-        this._toggleChosenFilterDisabledState(shouldDisableWebsitesAndProducts);
-      }
-      this._setMethodSelectWebsiteAndProductOptionDisabledState(shouldDisableWebsitesAndProducts);
-    });
-  }
-
-  _toggleNonSspFilters (dimensionSelect, shouldDisable) {
-    $.each(ResearchDynamicFilter.NON_SSP_FILTERS_OPTIONS, (_, option) => {
-      // toggle filter state depending on 'shouldDisable'
-    });
-  }
-}
-
-ResearchDynamicFilter.NON_SSP_FILTERS_OPTIONS = ['ad_unit', 'creative_size', 'geo', 'device', 'product'];
-```
+  ResearchDynamicFilter.NON_SSP_FILTERS_OPTIONS = ['ad_unit', 'creative_size', 'geo', 'device', 'product'];
+  ```
+</details>
 
 We still use some *'toggle'* mechanism. It is really hard to switch 4 levers and get to expected state and now DynamicFilter has to know, which dimensions are not for ssp source. We do have ResearchFormStateUpdater, why shouldn’t he be in charge?
 
